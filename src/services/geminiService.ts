@@ -9,7 +9,7 @@ const API_KEYS = [
   import.meta.env.VITE_GEMINI_API_KEY_8,
   import.meta.env.VITE_GEMINI_API_KEY_9,
   import.meta.env.VITE_GEMINI_API_KEY_10
-].filter(Boolean); // Remove any undefined keys
+].filter(Boolean).filter(key => key !== 'your_gemini_api_key_1' && !key.startsWith('your_gemini_api_key')); // Remove any undefined keys and placeholder values
 
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 
@@ -231,13 +231,13 @@ export class GeminiService {
 
   async makeRequest(prompt: string, requestId: string = Math.random().toString(36).substr(2, 9)): Promise<string> {
     if (API_KEYS.length === 0) {
-      throw new Error('No Gemini API keys configured');
+      throw new Error('No valid Gemini API keys configured. Please add your actual API keys to the .env file.');
     }
 
     const availableKeys = rateLimiter.getAvailableKeys(1);
     
     if (availableKeys.length === 0) {
-      throw new Error('All API keys are currently busy. Please wait a moment and try again.');
+      throw new Error('All API keys are currently busy or invalid. Please check your API keys and try again.');
     }
 
     const apiKey = availableKeys[0];
