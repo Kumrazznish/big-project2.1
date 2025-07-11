@@ -1,6 +1,18 @@
 import { supabase } from './supabase';
 import { UserProfile, LearningHistory } from '../types';
 
+interface RoadmapData {
+  roadmapId: string;
+  subject: string;
+  difficulty: string;
+  description: string;
+  totalDuration: string;
+  estimatedHours: string;
+  prerequisites: string[];
+  learningOutcomes: string[];
+  chapters: any[];
+}
+
 class SupabaseService {
   async getOrCreateUser(userData: {
     clerkId: string;
@@ -334,6 +346,158 @@ class SupabaseService {
     } catch (error) {
       console.error('Error getting detailed course:', error);
       return null;
+    }
+  }
+
+  async saveRoadmap(userId: string, roadmapData: RoadmapData): Promise<void> {
+    try {
+      console.log('Saving roadmap to database:', { userId, roadmapId: roadmapData.roadmapId });
+      
+      // Check if roadmap already exists
+      const { data: existingRoadmap, error: fetchError } = await supabase
+        .from('roadmaps')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('roadmap_id', roadmapData.roadmapId)
+        .single();
+
+      if (existingRoadmap) {
+        console.log('Updating existing roadmap in database');
+        // Update existing roadmap
+        const { error: updateError } = await supabase
+          .from('roadmaps')
+          .update({
+            subject: roadmapData.subject,
+            difficulty: roadmapData.difficulty,
+            description: roadmapData.description,
+            total_duration: roadmapData.totalDuration,
+            estimated_hours: roadmapData.estimatedHours,
+            prerequisites: roadmapData.prerequisites,
+            learning_outcomes: roadmapData.learningOutcomes,
+            chapters: roadmapData.chapters,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingRoadmap.id);
+
+        if (updateError) throw updateError;
+        console.log('Successfully updated existing roadmap');
+      } else {
+        console.log('Creating new roadmap in database');
+        // Create new roadmap
+        const { error: insertError } = await supabase
+          .from('roadmaps')
+          .insert({
+            user_id: userId,
+            roadmap_id: roadmapData.roadmapId,
+            subject: roadmapData.subject,
+            difficulty: roadmapData.difficulty,
+            description: roadmapData.description,
+            total_duration: roadmapData.totalDuration,
+            estimated_hours: roadmapData.estimatedHours,
+            prerequisites: roadmapData.prerequisites,
+            learning_outcomes: roadmapData.learningOutcomes,
+            chapters: roadmapData.chapters,
+            generated_at: new Date().toISOString()
+          });
+
+        if (insertError) throw insertError;
+        console.log('Successfully created new roadmap');
+      }
+    } catch (error) {
+      console.error('Error saving roadmap:', error);
+      throw error;
+    }
+  }
+
+  async getRoadmap(userId: string, roadmapId: string): Promise<any | null> {
+    try {
+      console.log('Fetching roadmap from database:', { userId, roadmapId });
+      const { data: roadmap, error } = await supabase
+        .from('roadmaps')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('roadmap_id', roadmapId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+
+      if (!roadmap) {
+        console.log('No roadmap found in database');
+        return null;
+      }
+
+      console.log('Found roadmap in database');
+      return {
+        id: roadmap.roadmap_id,
+        subject: roadmap.subject,
+        difficulty: roadmap.difficulty,
+        description: roadmap.description,
+        totalDuration: roadmap.total_duration,
+        estimatedHours: roadmap.estimated_hours,
+        prerequisites: roadmap.prerequisites || [],
+        learningOutcomes: roadmap.learning_outcomes || [],
+        chapters: roadmap.chapters || [],
+        generatedAt: roadmap.generated_at
+      };
+    } catch (error) {
+      console.error('Error getting roadmap:', error);
+      return null;
+    }
+  }
+
+  async getUserRoadmaps(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching user roadmaps from database:', userId);
+      const { data: roadmaps, error } = await supabase
+        .from('roadmaps')
+        .select('*')
+        .eq('user_id', userId)
+        .order('generated_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log('Found roadmaps in database:', roadmaps.length);
+      return roadmaps.map(roadmap => ({
+        id: roadmap.roadmap_id,
+        subject: roadmap.subject,
+        difficulty: roadmap.difficulty,
+        description: roadmap.description,
+        totalDuration: roadmap.total_duration,
+        estimatedHours: roadmap.estimated_hours,
+        prerequisites: roadmap.prerequisites || [],
+        learningOutcomes: roadmap.learning_outcomes || [],
+        chapters: roadmap.chapters || [],
+        generatedAt: roadmap.generated_at
+      }));
+    } catch (error) {
+      console.error('Error getting user roadmaps:', error);
+      return [];
+    }
+  }
+
+  async getUserDetailedCourses(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching user detailed courses from database:', userId);
+      const { data: courses, error } = await supabase
+        .from('detailed_courses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('generated_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log('Found detailed courses in database:', courses.length);
+      return courses.map(course => ({
+        id: course.id,
+        roadmapId: course.roadmap_id,
+        title: course.title,
+        description: course.description,
+        chapters: course.chapters || [],
+        generatedAt: course.generated_at
+      }));
+    } catch (error) {
+      console.error('Error getting user detailed courses:', error);
+      return [];
     }
   }
 }

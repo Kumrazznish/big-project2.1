@@ -1,6 +1,18 @@
 import { supabaseService } from './supabaseService';
 import { UserProfile, LearningHistory } from '../types';
 
+interface RoadmapData {
+  roadmapId: string;
+  subject: string;
+  difficulty: string;
+  description: string;
+  totalDuration: string;
+  estimatedHours: string;
+  prerequisites: string[];
+  learningOutcomes: string[];
+  chapters: any[];
+}
+
 class UserService {
   async getOrCreateUser(userData: {
     clerkId: string;
@@ -126,6 +138,49 @@ class UserService {
     }
   }
 
+  async saveRoadmap(userId: string, roadmapData: RoadmapData): Promise<void> {
+    try {
+      await supabaseService.saveRoadmap(userId, roadmapData);
+    } catch (error) {
+      console.error('Error in userService.saveRoadmap:', error);
+      // Fallback to localStorage
+      localStorage.setItem(`roadmap_${roadmapData.roadmapId}`, JSON.stringify(roadmapData));
+    }
+  }
+
+  async getRoadmap(userId: string, roadmapId: string): Promise<any | null> {
+    try {
+      return await supabaseService.getRoadmap(userId, roadmapId);
+    } catch (error) {
+      console.error('Error in userService.getRoadmap:', error);
+      // Fallback to localStorage
+      const roadmap = localStorage.getItem(`roadmap_${roadmapId}`);
+      return roadmap ? JSON.parse(roadmap) : null;
+    }
+  }
+
+  async getUserRoadmaps(userId: string): Promise<any[]> {
+    try {
+      return await supabaseService.getUserRoadmaps(userId);
+    } catch (error) {
+      console.error('Error in userService.getUserRoadmaps:', error);
+      // Fallback to localStorage - scan for roadmap keys
+      const roadmaps = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('roadmap_')) {
+          try {
+            const roadmap = JSON.parse(localStorage.getItem(key) || '');
+            roadmaps.push(roadmap);
+          } catch (parseError) {
+            console.error('Error parsing roadmap from localStorage:', parseError);
+          }
+        }
+      }
+      return roadmaps;
+    }
+  }
+
   async saveDetailedCourse(userId: string, courseData: {
     roadmapId: string;
     title: string;
@@ -169,6 +224,28 @@ class UserService {
       // Fallback to localStorage
       console.log('Falling back to localStorage for saving detailed course');
       localStorage.setItem(`detailed_course_${courseData.roadmapId}`, JSON.stringify(courseData));
+    }
+  }
+
+  async getUserDetailedCourses(userId: string): Promise<any[]> {
+    try {
+      return await supabaseService.getUserDetailedCourses(userId);
+    } catch (error) {
+      console.error('Error in userService.getUserDetailedCourses:', error);
+      // Fallback to localStorage
+      const courses = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('detailed_course_')) {
+          try {
+            const course = JSON.parse(localStorage.getItem(key) || '');
+            courses.push(course);
+          } catch (parseError) {
+            console.error('Error parsing detailed course from localStorage:', parseError);
+          }
+        }
+      }
+      return courses;
     }
   }
 }
