@@ -19,7 +19,11 @@ import { useAuth } from './contexts/AuthContext';
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key")
+  throw new Error("Missing Clerk Publishable Key. Please add VITE_CLERK_PUBLISHABLE_KEY to your .env file. Get your key from https://dashboard.clerk.com/last-active?path=api-keys")
+}
+
+if (CLERK_PUBLISHABLE_KEY === 'pk_test_your-clerk-publishable-key-here') {
+  throw new Error("Please replace the placeholder Clerk Publishable Key with your actual key from https://dashboard.clerk.com/last-active?path=api-keys")
 }
 
 type AppState = 'dashboard' | 'history' | 'selection' | 'roadmap' | 'detailed-course' | 'chapter' | 'quiz';
