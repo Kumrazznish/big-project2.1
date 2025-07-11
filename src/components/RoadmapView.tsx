@@ -422,7 +422,7 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
                 </div>
               </div>
-            </p>
+            </div>
             
             {/* Status Messages */}
             <div className={`text-sm space-y-2 transition-colors ${
@@ -431,7 +431,7 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
               <p>✨ Using multiple AI models for faster generation</p>
               <p>🔄 Processing chapters in parallel for optimal speed</p>
               <p>📚 Creating comprehensive content with examples and exercises</p>
-            </p>
+            </div>
           </div>
         </div>
       </div>
