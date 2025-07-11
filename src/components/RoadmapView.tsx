@@ -54,7 +54,8 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [generatingDetailedCourse, setGeneratingDetailedCourse] = useState(false);
-  const [detailedCourseProgress, setDetailedCourseProgress] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStatus, setGenerationStatus] = useState('');
   const [currentGeneratingChapter, setCurrentGeneratingChapter] = useState('');
 
   const maxRetries = 3;
@@ -66,6 +67,8 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
   const generateRoadmap = async () => {
     setLoading(true);
     setError(null);
+    setGenerationProgress(0);
+    setGenerationStatus('Initializing...');
     
     try {
       console.log('Generating roadmap for:', { subject, difficulty });
@@ -76,7 +79,15 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
         throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(rateLimitStatus.waitTime / 1000)} seconds before trying again.`);
       }
       
-      const roadmapData = await geminiService.generateRoadmap(subject, difficulty);
+      const roadmapData = await geminiService.generateRoadmap(
+        subject, 
+        difficulty,
+        (progress, status) => {
+          setGenerationProgress(progress);
+          setGenerationStatus(status);
+        }
+      );
+      
       console.log('Generated roadmap:', roadmapData);
       
       // Create unique roadmap ID
@@ -147,67 +158,23 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
     if (!roadmap || !user) return;
     
     setGeneratingDetailedCourse(true);
-    setDetailedCourseProgress(0);
+    setGenerationProgress(0);
+    setGenerationStatus('Starting detailed course generation...');
     setCurrentGeneratingChapter('');
     
     try {
       console.log('Starting detailed course generation for roadmap:', roadmap.id);
       
-      const detailedChapters = [];
-      const totalChapters = roadmap.chapters.length;
-      
-      for (let i = 0; i < roadmap.chapters.length; i++) {
-        const chapter = roadmap.chapters[i];
-        setCurrentGeneratingChapter(chapter.title);
-        setDetailedCourseProgress(Math.round((i / totalChapters) * 100));
-        
-        try {
-          console.log(`Generating content for chapter ${i + 1}/${totalChapters}: ${chapter.title}`);
-          const chapterContent = await geminiService.generateCourseContent(
-            chapter.title, 
-            roadmap.subject, 
-            roadmap.difficulty
-          );
-          
-          // Generate quiz for the chapter
-          const chapterQuiz = await geminiService.generateQuiz(
-            chapter.title,
-            roadmap.subject,
-            roadmap.difficulty
-          );
-          
-          detailedChapters.push({
-            ...chapter,
-            content: chapterContent,
-            quiz: chapterQuiz
-          });
-          
-          console.log(`Successfully generated content for chapter: ${chapter.title}`);
-        } catch (chapterError) {
-          console.error(`Failed to generate content for chapter ${chapter.title}:`, chapterError);
-          // Add chapter without detailed content
-          detailedChapters.push({
-            ...chapter,
-            content: null,
-            quiz: null
-          });
+      const detailedCourse = await geminiService.generateDetailedCourse(
+        roadmap,
+        (progress, status, currentChapter) => {
+          setGenerationProgress(progress);
+          setGenerationStatus(status);
+          if (currentChapter) {
+            setCurrentGeneratingChapter(currentChapter);
+          }
         }
-        
-        // Small delay to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      setDetailedCourseProgress(100);
-      setCurrentGeneratingChapter('Finalizing course...');
-      
-      const detailedCourse = {
-        id: `detailed_${roadmap.id}`,
-        roadmapId: roadmap.id,
-        title: `Complete ${roadmap.subject} Course`,
-        description: `Comprehensive ${roadmap.subject} course with detailed content, examples, and quizzes`,
-        chapters: detailedChapters,
-        generatedAt: new Date().toISOString()
-      };
+      );
       
       // Save detailed course to database
       await userService.saveDetailedCourse(user._id, {
@@ -230,7 +197,8 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
       setError('Failed to generate detailed course. Please try again.');
     } finally {
       setGeneratingDetailedCourse(false);
-      setDetailedCourseProgress(0);
+      setGenerationProgress(0);
+      setGenerationStatus('');
       setCurrentGeneratingChapter('');
     }
   };
@@ -276,23 +244,44 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
       }`}>
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center space-y-8">
+            {/* Enhanced Loading Animation for Roadmap */}
             <div className="relative">
-              <div className="w-32 h-32 border-4 border-cyan-500/30 rounded-full animate-spin">
-                <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full"></div>
+              <div className="w-32 h-32 relative">
+                <div className="absolute inset-0 border-4 border-cyan-500/30 rounded-full animate-spin">
+                  <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full"></div>
+                </div>
+                <div className="absolute inset-4 border-4 border-purple-500/20 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '2s' }}>
+                  <div className="absolute top-0 left-0 w-6 h-6 bg-gradient-to-r from-purple-500 to-cyan-600 rounded-full"></div>
+                </div>
               </div>
               <Brain className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 text-cyan-500" />
             </div>
+            
             <div>
               <h3 className={`text-3xl font-bold mb-4 transition-colors ${
                 theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>
-                Generating Your Learning Roadmap
+                🎯 Crafting Your Perfect Learning Path
               </h3>
               <p className={`text-lg transition-colors ${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                AI is creating a personalized {subject} roadmap for {difficulty} level...
+                {generationStatus || `AI is creating a personalized ${subject} roadmap for ${difficulty} level...`}
               </p>
+              
+              {generationProgress > 0 && (
+                <div className="mt-6 max-w-md mx-auto">
+                  <div className={`w-full rounded-full h-3 ${
+                    theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'
+                  }`}>
+                    <div 
+                      className="bg-gradient-to-r from-cyan-500 to-purple-600 h-3 rounded-full transition-all duration-1000"
+                      style={{ width: `${generationProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-cyan-500 font-bold text-sm mt-2">{generationProgress}%</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -374,9 +363,15 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
               ? 'bg-slate-800/50 border-white/10 backdrop-blur-xl' 
               : 'bg-white/80 border-gray-200 backdrop-blur-xl'
           }`}>
+            {/* Enhanced Loading Animation */}
             <div className="relative mb-8">
-              <div className="w-32 h-32 border-4 border-purple-500/30 rounded-full animate-spin mx-auto">
-                <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full"></div>
+              <div className="w-32 h-32 relative mx-auto">
+                <div className="absolute inset-0 border-4 border-purple-500/30 rounded-full animate-spin">
+                  <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full"></div>
+                </div>
+                <div className="absolute inset-4 border-4 border-pink-500/20 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '3s' }}>
+                  <div className="absolute top-0 left-0 w-6 h-6 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full"></div>
+                </div>
               </div>
               <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 text-purple-500" />
             </div>
@@ -384,28 +379,58 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
             <h3 className={`text-3xl font-bold mb-4 transition-colors ${
               theme === 'dark' ? 'text-white' : 'text-gray-900'
             }`}>
-              Generating Enhanced Course Content
+              🚀 AI is Working Its Magic
             </h3>
             
             <p className={`text-lg mb-8 transition-colors ${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              {currentGeneratingChapter || 'Preparing comprehensive course materials...'}
+              {generationStatus}
             </p>
             
-            <div className={`w-full rounded-full h-4 mb-4 ${
+            {currentGeneratingChapter && (
+              <div className={`mb-6 p-4 rounded-xl border-l-4 border-purple-500 transition-colors ${
+                theme === 'dark' ? 'bg-purple-500/10' : 'bg-purple-50'
+              }`}>
+                <p className={`font-medium transition-colors ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Currently generating: {currentGeneratingChapter}
+                </p>
+              </div>
+            )}
+            
+            {/* Enhanced Progress Bar */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-medium transition-colors ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Progress
+                </span>
+                <span className="text-purple-500 font-bold text-lg">
+                  {generationProgress}%
+                </span>
+              </div>
+              <div className={`w-full rounded-full h-4 mb-4 ${
+                theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'
+              }`}>
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 h-4 rounded-full transition-all duration-1000 relative overflow-hidden"
+                  style={{ width: `${generationProgress}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                </div>
+              </div>
+            </p>
+            
+            {/* Status Messages */}
+            <div className={`text-sm space-y-2 transition-colors ${
               theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'
             }`}>
-              <div 
-                className="bg-gradient-to-r from-purple-500 to-pink-600 h-4 rounded-full transition-all duration-1000"
-                style={{ width: `${detailedCourseProgress}%` }}
-              ></div>
-            </div>
-            
-            <p className={`text-sm transition-colors ${
-              theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
-            }`}>
-              {detailedCourseProgress}% complete • Generating detailed content, examples, and quizzes
+              <p>✨ Using multiple AI models for faster generation</p>
+              <p>🔄 Processing chapters in parallel for optimal speed</p>
+              <p>📚 Creating comprehensive content with examples and exercises</p>
             </p>
           </div>
         </div>
@@ -498,10 +523,13 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({
           <button
             onClick={generateDetailedCourse}
             disabled={generatingDetailedCourse}
-            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-12 py-4 rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 font-bold text-lg flex items-center space-x-3 shadow-2xl hover:shadow-purple-500/25 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-12 py-4 rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 font-bold text-lg flex items-center space-x-3 shadow-2xl hover:shadow-purple-500/25 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
           >
+            {generatingDetailedCourse && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse"></div>
+            )}
             <Sparkles className="w-6 h-6" />
-            <span>Generate Complete Course</span>
+            <span>{generatingDetailedCourse ? 'Generating...' : 'Generate Complete Course'}</span>
           </button>
         </div>
 

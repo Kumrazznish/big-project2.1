@@ -196,7 +196,7 @@ const SubjectSelector: React.FC<SubjectSelectorProps> = ({ onSubjectSelect }) =>
     canMakeRequest: true, 
     waitTime: 0, 
     requestsRemaining: 40,
-    activeKeys: 0,
+    activeKeys: 10,
     keyStatuses: [] as Array<{ key: string; requests: number; available: boolean; errors: number }>
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -806,12 +806,15 @@ const SubjectSelector: React.FC<SubjectSelectorProps> = ({ onSubjectSelect }) =>
                 {isLoading
                   ? 'Generating...'
                   : !rateLimitStatus.canMakeRequest 
-                  ? `Wait ${Math.ceil(rateLimitStatus.waitTime / 1000)}s` 
+                  ? `Please wait...` 
                   : 'Generate My Roadmap'
                 }
               </span>
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="relative">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="absolute inset-0 border-2 border-transparent border-t-white/50 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }}></div>
+                </div>
               ) : (
                 <Sparkles size={20} className="group-hover:scale-110 transition-transform" />
               )}
@@ -820,14 +823,14 @@ const SubjectSelector: React.FC<SubjectSelectorProps> = ({ onSubjectSelect }) =>
         </div>
 
         {/* Rate limit indicator */}
-        {!rateLimitStatus.canMakeRequest && (
+        {!rateLimitStatus.canMakeRequest && !isLoading && (
           <div className={`mt-4 p-4 rounded-xl border text-center transition-colors ${
             theme === 'dark' 
               ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' 
               : 'bg-orange-50 border-orange-200 text-orange-600'
           }`}>
             <p className="font-medium mb-2">API Rate Limit Reached</p>
-            <p className="text-sm">Please wait {Math.ceil(rateLimitStatus.waitTime / 1000)} seconds before generating a roadmap.</p>
+            <p className="text-sm">Our AI is currently busy. Please wait a moment and try again.</p>
           </div>
         )}
         
@@ -835,7 +838,7 @@ const SubjectSelector: React.FC<SubjectSelectorProps> = ({ onSubjectSelect }) =>
           theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
         }`}>
           <div className="flex items-center justify-center space-x-3 flex-wrap gap-1">
-            <span>API Keys: {rateLimitStatus.activeKeys}</span>
+            <span>🚀 {rateLimitStatus.activeKeys} AI Models Active</span>
             <span>Requests Available: {rateLimitStatus.requestsRemaining}</span>
           </div>
         </div>
