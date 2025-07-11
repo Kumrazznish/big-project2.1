@@ -3,7 +3,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
 import { LearningHistory } from '../types';
-import { Clock, BookOpen, Award, TrendingUp, Calendar, Filter, Play, Target, Users, Star, ChevronRight, BarChart3, Trophy, Zap, Brain, Code, Palette, Calculator, Globe, AlertCircle, RefreshCw, Sparkles, Timer, CheckCircle, Database, Smartphone, Camera, Headphones, Monitor, Wifi, Settings, Lock, Layers, Cpu } from 'lucide-react';
+import { Clock, BookOpen, Award, TrendingUp, Calendar, Filter, Play, Target, Users, Star, ChevronRight, BarChart3, Trophy, Zap, Brain, Code, Palette, Calculator, Globe, AlertCircle, RefreshCw, Sparkles, Timer, CheckCircle, Database, Smartphone, Camera, Headphones, Monitor, Wifi, Settings, Lock, Layers, Cpu, Eye, Download } from 'lucide-react';
 
 interface HistoryPageProps {
   onContinueLearning: (subject: string, difficulty: string, roadmapId: string) => void;
@@ -16,6 +16,9 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'completed' | 'in-progress' | 'recent'>('all');
+  const [viewMode, setViewMode] = useState<'history' | 'roadmaps' | 'courses'>('history');
+  const [roadmaps, setRoadmaps] = useState<any[]>([]);
+  const [detailedCourses, setDetailedCourses] = useState<any[]>([]);
   const [retryCount, setRetryCount] = useState(0);
 
   const maxRetries = 3;
@@ -23,6 +26,8 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
   useEffect(() => {
     if (user) {
       loadHistory();
+      loadRoadmaps();
+      loadDetailedCourses();
     } else {
       setLoading(false);
     }
@@ -48,10 +53,38 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
     }
   };
 
+  const loadRoadmaps = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('Loading roadmaps for user:', user._id);
+      const roadmapsData = await userService.getUserRoadmaps(user._id);
+      console.log('Roadmaps data loaded:', roadmapsData);
+      setRoadmaps(roadmapsData);
+    } catch (error) {
+      console.error('Failed to load roadmaps:', error);
+    }
+  };
+
+  const loadDetailedCourses = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('Loading detailed courses for user:', user._id);
+      const coursesData = await userService.getUserDetailedCourses(user._id);
+      console.log('Detailed courses data loaded:', coursesData);
+      setDetailedCourses(coursesData);
+    } catch (error) {
+      console.error('Failed to load detailed courses:', error);
+    }
+  };
+
   const handleRetry = () => {
     if (retryCount < maxRetries) {
       setRetryCount(prev => prev + 1);
       loadHistory();
+      loadRoadmaps();
+      loadDetailedCourses();
     }
   };
 
@@ -350,7 +383,42 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
             ? 'bg-slate-800/50 border-white/10' 
             : 'bg-white/80 border-gray-200'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-6">
+              <Filter className={`w-6 h-6 transition-colors ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`} />
+              <span className={`text-xl font-bold transition-colors ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
+                View:
+              </span>
+            </div>
+            <div className="flex space-x-3">
+              {[
+                { id: 'history', name: 'Learning History' },
+                { id: 'roadmaps', name: 'My Roadmaps' },
+                { id: 'courses', name: 'Detailed Courses' }
+              ].map((view) => (
+                <button
+                  key={view.id}
+                  onClick={() => setViewMode(view.id as any)}
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                    viewMode === view.id
+                      ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg scale-105'
+                      : theme === 'dark'
+                        ? 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {view.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {viewMode === 'history' && (
+            <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
               <Filter className={`w-6 h-6 transition-colors ${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
@@ -384,10 +452,13 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
               ))}
             </div>
           </div>
+          )}
         </div>
 
-        {/* History List */}
-        {filteredHistory.length === 0 ? (
+        {/* Content based on view mode */}
+        {viewMode === 'history' && (
+          <>
+            {filteredHistory.length === 0 ? (
           <div className={`backdrop-blur-xl border rounded-3xl p-16 text-center transition-colors ${
             theme === 'dark' 
               ? 'bg-slate-800/50 border-white/10' 
@@ -410,7 +481,7 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
               }
             </p>
           </div>
-        ) : (
+            ) : (
           <div className="space-y-8">
             {filteredHistory.map((item) => {
               const SubjectIcon = getSubjectIcon(item.subject);
@@ -553,6 +624,203 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ onContinueLearning }) => {
                 </div>
               );
             })}
+          </div>
+            )}
+          </>
+        )}
+
+        {/* Roadmaps View */}
+        {viewMode === 'roadmaps' && (
+          <div className="space-y-8">
+            {roadmaps.length === 0 ? (
+              <div className={`backdrop-blur-xl border rounded-3xl p-16 text-center transition-colors ${
+                theme === 'dark' 
+                  ? 'bg-slate-800/50 border-white/10' 
+                  : 'bg-white/80 border-gray-200'
+              }`}>
+                <div className="w-32 h-32 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <BookOpen className="w-16 h-16 text-white" />
+                </div>
+                <h3 className={`text-3xl font-bold mb-6 transition-colors ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  No Roadmaps Found
+                </h3>
+                <p className={`text-xl mb-10 transition-colors ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Create your first learning roadmap to see it here
+                </p>
+              </div>
+            ) : (
+              roadmaps.map((roadmap) => {
+                const SubjectIcon = getSubjectIcon(roadmap.subject);
+                
+                return (
+                  <div
+                    key={roadmap.id}
+                    className={`group backdrop-blur-xl border rounded-3xl p-10 transition-all duration-500 hover:scale-[1.02] ${
+                      theme === 'dark' 
+                        ? 'bg-slate-800/50 border-white/10 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10' 
+                        : 'bg-white/80 border-gray-200 hover:border-cyan-300 hover:shadow-2xl hover:shadow-cyan-500/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-8">
+                        <div className={`w-20 h-20 rounded-3xl bg-gradient-to-r ${getDifficultyColor(roadmap.difficulty)} flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform`}>
+                          <SubjectIcon className="w-10 h-10 text-white" />
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4 mb-4">
+                            <h3 className={`text-3xl font-bold transition-colors ${
+                              theme === 'dark' ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {roadmap.subject}
+                            </h3>
+                            <span className={`px-4 py-2 rounded-full font-bold bg-gradient-to-r ${getDifficultyColor(roadmap.difficulty)} text-white`}>
+                              {roadmap.difficulty.charAt(0).toUpperCase() + roadmap.difficulty.slice(1)}
+                            </span>
+                          </div>
+                          
+                          <p className={`text-lg mb-6 transition-colors ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {roadmap.description}
+                          </p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <Clock className="w-5 h-5" />
+                              <span className="text-lg">{roadmap.totalDuration}</span>
+                            </div>
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <Target className="w-5 h-5" />
+                              <span className="text-lg">{roadmap.estimatedHours}</span>
+                            </div>
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <BookOpen className="w-5 h-5" />
+                              <span className="text-lg">{roadmap.chapters.length} chapters</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-8 text-lg">
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <Calendar className="w-5 h-5" />
+                              <span>Created {formatDate(roadmap.generatedAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={() => handleContinueLearning(roadmap.subject, roadmap.difficulty, roadmap.id)}
+                          className="bg-gradient-to-r from-cyan-500 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-cyan-600 hover:to-purple-700 transition-all duration-300 font-semibold flex items-center space-x-2"
+                        >
+                          <Eye className="w-5 h-5" />
+                          <span>View Roadmap</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Detailed Courses View */}
+        {viewMode === 'courses' && (
+          <div className="space-y-8">
+            {detailedCourses.length === 0 ? (
+              <div className={`backdrop-blur-xl border rounded-3xl p-16 text-center transition-colors ${
+                theme === 'dark' 
+                  ? 'bg-slate-800/50 border-white/10' 
+                  : 'bg-white/80 border-gray-200'
+              }`}>
+                <div className="w-32 h-32 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <BookOpen className="w-16 h-16 text-white" />
+                </div>
+                <h3 className={`text-3xl font-bold mb-6 transition-colors ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  No Detailed Courses Found
+                </h3>
+                <p className={`text-xl mb-10 transition-colors ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Generate detailed courses from your roadmaps to see them here
+                </p>
+              </div>
+            ) : (
+              detailedCourses.map((course) => {
+                return (
+                  <div
+                    key={course.id}
+                    className={`group backdrop-blur-xl border rounded-3xl p-10 transition-all duration-500 hover:scale-[1.02] ${
+                      theme === 'dark' 
+                        ? 'bg-slate-800/50 border-white/10 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10' 
+                        : 'bg-white/80 border-gray-200 hover:border-cyan-300 hover:shadow-2xl hover:shadow-cyan-500/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-8">
+                        <div className="w-20 h-20 rounded-3xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                          <Sparkles className="w-10 h-10 text-white" />
+                        </div>
+                        
+                        <div className="flex-1">
+                          <h3 className={`text-3xl font-bold mb-4 transition-colors ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {course.title}
+                          </h3>
+                          
+                          <p className={`text-lg mb-6 transition-colors ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {course.description}
+                          </p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <BookOpen className="w-5 h-5" />
+                              <span className="text-lg">{course.chapters.length} detailed chapters</span>
+                            </div>
+                            <div className={`flex items-center space-x-3 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              <Calendar className="w-5 h-5" />
+                              <span className="text-lg">Generated {formatDate(course.generatedAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <button
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 font-semibold flex items-center space-x-2"
+                        >
+                          <Eye className="w-5 h-5" />
+                          <span>View Course</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>
