@@ -212,6 +212,8 @@ class UserService {
   async saveDetailedCourse(userId: string, courseData: {
     roadmapId: string;
     title: string;
+  }
+  )
   async getUserDetailedCourses(userId: string): Promise<any[]> {
     try {
       return await supabaseService.getUserDetailedCourses(userId);
